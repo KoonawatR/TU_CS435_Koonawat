@@ -31,14 +31,103 @@ int client_shutdown_flag = 0;
 int conn_fd;
 struct sockaddr_in serv_addr;
 
-int main(int argc, char *argv[]){
+//part2 circular linked list
+struct hnode{
+  int client;
+  int length;
+  char * line;
+  struct hnode * next;
+};
 
+//create pointer Head/Tail
+struct hnode * head = NULL;
+struct hnode * tail = NULL;
+
+//add new node
+void addatlast(int id,int len,char * lin)
+{
+    // Initialize a new node
+    struct hnode* temp;
+    temp = (struct hnode*)malloc(sizeof(struct hnode));
+  
+    // If the new node is the only node in the list
+    if (tail == NULL) {
+        temp->client = id;
+        temp->length = len;
+        temp->line = malloc(strlen(lin)+1);
+        strcpy(temp->line,lin);
+        temp->next = temp;
+        tail = temp;
+        head = temp;
+    }
+  
+    // Else the new node will be last node and will contain
+    // the reference of head node
+    else {
+        temp->client = id;
+        temp->length = len;
+        temp->line = malloc(strlen(lin)+1);
+        strcpy(temp->line,lin);
+        temp->next = tail->next;
+        tail->next = temp;
+        tail = temp;
+    }
+}
+
+//delete first node
+void deletefirst()
+{
+  struct hnode* temp;
+
+  temp = tail->next;
+  tail->next = temp->next;
+  free(temp->line);
+  free(temp);
+}
+
+void printprompt(char id[]){
+    char tP1[5] = "cli-";
+    char tP2[10] = "> ";
+    char concat[MAXLINE] = "";
+    strcat(concat,tP1); // <- concat string
+    strcat(concat,id); // <- concat string
+    strcat(concat,tP2); // <- concat string
+    printf("%s",concat);
+    fflush(stdout);
+}
+
+//print list
+void viewList()
+{
+    // If list is empty
+    if (tail == NULL)
+        printf("List is empty\n");
+  
+    // Else print the list
+    else {
+        struct hnode* temp;
+        temp = tail->next;
+        printf("----Chat History----\n");
+        do {
+          if(temp != NULL){
+            printf("%s", temp->line);
+            temp = temp->next;
+          }
+        } while (temp != tail->next);
+    }
+}
+
+int main(int argc, char *argv[]){
     int n, m;
     int chk = 0;
 	fd_set base_rfds, rfds; 
     int fdmax = 0; 
+    int listchk = 0;
     char line[MAXLINE];
     char id[MAXLINE]; //store id
+    char tP1[5] = "cli-";
+    char tP2[10] = " says: ";
+    char concat[MAXLINE] = "";
 
 	conn_fd = socket(AF_INET, SOCK_STREAM, 0); 
 
@@ -74,7 +163,24 @@ int main(int argc, char *argv[]){
 	      client_shutdown_flag = 1;
 	    }
 	    else{
-            n = write_full(conn_fd, line, MAXLINE);
+            if(strcmp(line, "viewlist\n") == 0){
+                viewList();
+                printprompt(id);
+            }else{
+                n = write_full(conn_fd, line, MAXLINE);
+                strcat(concat,tP1); // <- concat string
+                strcat(concat,id); // <- concat string
+                strcat(concat,tP2); // <- concat string
+                strcat(concat,line); // <- concat string
+                int x = atoi(id);
+                addatlast(x, MAXLINE, concat); //add node
+                listchk++;
+                if(listchk > 10){ //if node > 10 delete
+                    deletefirst();
+                }
+                memset(concat, 0, sizeof(concat)); // <- set array to empty
+                printprompt(id);
+            }
 	    }
 	  }
 	  if(FD_ISSET(conn_fd, &rfds)){
@@ -94,17 +200,20 @@ int main(int argc, char *argv[]){
             if(chk == 0){ // get id from server
                 strcat(id,line);
                 chk++;
+                printprompt(id);
                 continue;
             }
             //printf("\n");
-            printf("%s", line);
+            int x = atoi(id);
+            addatlast(x, MAXLINE, line); //add node
+            listchk++;
+            if(listchk > 10){ //if node > 10 delete
+                deletefirst();
+            }
+            printf("\n%s", line);
+            printprompt(id);
 	    }
 	  }
-      /*
-      if (chk > 0){ // use for interface (still bug)
-            printf("cli-%s:> ",id);
-      }
-      */
 	}
 }
 
